@@ -1,0 +1,35 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $component := "frontend" -}}
+{{- $componentName := printf "%s-%s" $appName $component -}}
+{{- $this := . -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  {{- with .Values.frontend.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  name: {{ $componentName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+    component: {{ $component }}
+  {{- with .Values.frontend.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.frontend.service.type }}
+  selector:
+    app: {{ $appName }}
+    release: {{ .Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80

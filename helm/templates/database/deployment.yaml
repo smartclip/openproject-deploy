@@ -1,0 +1,131 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $component := "database" -}}
+{{- $componentName := printf "%s-%s" $appName $component -}}
+{{- $this := . -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- with .Values.database.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  name: {{ $componentName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+    component: {{ $component }}
+  {{- with .Values.database.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+   {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $appName }}
+      release: {{ .Release.Name }}
+      {{ $appName }}.service: {{ $component }}
+  {{- with .Values.database.strategy }}
+  strategy:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      {{- with .Values.database.podAnnotations }}
+      annotations:
+{{ tpl (toYaml .) $this | indent 8}}
+      {{- end }}
+      labels:
+        app: {{ $appName }}
+        release: {{ .Release.Name }}
+        {{ $appName }}.service: {{ $component }}
+        # openproject.network
+      {{- range $networkName := .Values.database.networks }}
+        {{ printf "%s.network/%s" $appName $networkName }}: "true"
+      {{- end }}
+      {{- with .Values.database.podLabels }}
+{{ tpl (toYaml .) $this | indent 8}}
+      {{- end }}
+    spec:
+      containers:
+        - image: {{ .Values.database.image }}
+          name: {{ $component }}
+          {{- if or ( len .Values.database.secret ) ( len .Values.database.env ) }}
+          env:
+            {{- with .Values.database.secret }}
+              {{- range $k,$v := . }}
+            - name: {{ $k }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $componentName }}
+                  key: {{ $k }}
+                  optional: false
+              {{- end}}
+            {{- end}}
+            {{- with .Values.database.env }}
+              {{- range $k,$v := .}}
+            - name: {{ $k }}
+              value: {{ tpl $v $this | quote }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          {{- with .Values.database.livenessProbe }}
+          livenessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.database.readinessProbe }}
+          readinessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.database.resources }}
+          resources:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- if .Values.database.persistentVolumeClaim.enabled }}
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: pgdata
+          {{- end }}
+        {{- if .Values.database.metrics.enabled }}
+        - name: metrics
+          image: {{ .Values.database.metrics.image }}
+          {{- with .Values.database.metrics.env }}
+          env:
+            {{- range $k,$v := .}}
+            - name: {{ $k }}
+              value: {{ tpl $v $this | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: metrics
+              containerPort: 9150
+              protocol: TCP
+          {{- with .Values.database.metrics.livenessProbe }}
+          livenessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.database.metrics.readinessProbe }}
+          readinessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.database.metrics.resources }}
+          resources:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- end }}
+      restartPolicy: {{ .Values.database.restartPolicy }}
+      terminationGracePeriodSeconds: {{ .Values.database.terminationGracePeriodSeconds }}
+      {{- if .Values.database.persistentVolumeClaim.enabled }}
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: {{ $componentName }}
+      {{- end }}

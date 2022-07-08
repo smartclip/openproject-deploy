@@ -1,0 +1,33 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $this := . -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+{{- with .Values.cache.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  name: {{ printf "%s-%s" $appName "cache" }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+    {{ $appName }}.service: cache
+    component: cache
+  {{- with .Values.cache.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+   {{- end }}
+spec:
+  type: {{ .Values.cache.service.type }}
+  selector:
+    app: {{ $appName }}
+    release: {{ .Release.Name }}
+    {{ $appName }}.service: cache
+  ports:
+    - name: cache
+      protocol: TCP
+      port: 11211
+      targetPort: 11211

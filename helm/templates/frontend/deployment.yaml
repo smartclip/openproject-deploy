@@ -1,0 +1,110 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $component := "frontend" -}}
+{{- $componentName := printf "%s-%s" $appName $component -}}
+{{- $databaseReferenceName := printf "%s-%s" $appName "database" -}}
+{{- $this := . -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- with .Values.frontend.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  name: {{ $componentName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+    component: {{ $component }}
+  {{- with .Values.frontend.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+   {{- end }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $appName }}
+      release: {{ .Release.Name }}
+      {{ $appName }}.service: {{ $component }}
+  {{- with .Values.frontend.strategy }}
+  strategy:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      {{- with .Values.frontend.podAnnotations }}
+      annotations:
+{{ tpl (toYaml .) $this | indent 8}}
+      {{- end }}
+      labels:
+        app: {{ $appName }}
+        release: {{ .Release.Name }}
+        {{ $appName }}.service: {{ $component }}
+      {{- with .Values.frontend.podLabels }}
+{{ tpl (toYaml .) $this | indent 8}}
+      {{- end }}
+      # openproject.network
+      {{- range $networkName := .Values.frontend.networks }}
+        {{ printf "%s.network/%s" $appName $networkName }}: "true"
+      {{- end }}
+    spec:
+      containers:
+        - name: web
+          image: {{ default .Values.frontend.image .Values.openproject_image }}
+          args:
+            - ./docker/prod/web
+          env:
+            {{- with .Values.database.secret }}
+              {{- range $k,$v := . }}
+            - name: {{ $k }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $databaseReferenceName }}
+                  key: {{ $k }}
+                  optional: false
+              {{- end}}
+            {{- end}}
+            - name: DATABASE_URL
+              value: postgres://postgres:$(POSTGRES_PASSWORD)@{{ $databaseReferenceName }}:5432/openproject?pool=20&encoding=unicode&reconnect=true
+            - name: IMAP_ENABLED
+              value: "false"
+            - name: OPENPROJECT_CACHE__MEMCACHE__SERVER
+              value: {{ printf "%s-%s" $appName "cache" }}:11211
+            {{- with .Values.frontend.env }}
+              {{- range $k,$v := .}}
+            - name: {{ $k }}
+              value: {{ tpl $v $this | quote }}
+              {{- end }}
+            {{- end }}
+          ports:
+            - containerPort: 80
+              name: http
+          {{- with .Values.frontend.livenessProbe }}
+          livenessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.frontend.readinessProbe }}
+          readinessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.frontend.resources }}
+          resources:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- if .Values.frontend.persistentVolumeClaim.enabled }}
+          volumeMounts:
+            - mountPath: /var/openproject/assets
+              name: opdata
+          {{- end }}
+      restartPolicy: {{.Values.frontend.restartPolicy }}
+      {{- if .Values.frontend.persistentVolumeClaim.enabled }}
+      volumes:
+        - name: opdata
+          persistentVolumeClaim:
+            claimName: {{ $componentName }}
+      {{- end }}
+

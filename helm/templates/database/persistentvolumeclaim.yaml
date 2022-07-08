@@ -1,0 +1,27 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $component := "database" -}}
+{{- $componentName := printf "%s-%s" $appName $component -}}
+{{- $this := . -}}
+{{- if .Values.database.persistentVolumeClaim.enabled -}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  {{- with .Values.database.persistentVolumeClaim.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  name: {{ $componentName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+    component: {{ $component }}
+spec:
+  {{- with .Values.database.persistentVolumeClaim.spec }}
+{{ tpl (toYaml .) $this | indent 2 }}
+  {{- end }}
+{{- end }}

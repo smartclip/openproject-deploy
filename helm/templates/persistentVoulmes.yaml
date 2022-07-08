@@ -1,0 +1,20 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $this := . -}}
+{{- range $volume := .Values.persistentVolumes }}
+{{- $volumeName := tpl $volume.name $this }}
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $volumeName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+spec:
+  {{- with $volume.spec }}
+{{ tpl (toYaml .) $this | indent 2 }}
+  {{- end }}
+{{- end }}

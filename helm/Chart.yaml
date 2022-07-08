@@ -1,0 +1,9 @@
+apiVersion: v2
+appVersion: "12"
+description: Open source project management software
+home: https://www.openproject.org/docs/
+keywords: 
+ - openproject
+name: openproject
+type: application
+version: 0.1.0

@@ -1,0 +1,35 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $component := "database" -}}
+{{- $componentName := printf "%s-%s" $appName $component -}}
+{{- $this := . -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  {{- with .Values.database.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  name: {{ $componentName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+    component: {{ $component }}
+  {{- with .Values.database.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.database.service.type }}
+  selector:
+    app: {{ $appName }}
+    release: {{ .Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+  ports:
+    - name: postgress
+      protocol: TCP
+      port: 5432
+      targetPort: 5432

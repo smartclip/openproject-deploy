@@ -1,0 +1,108 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $component := "cache" -}}
+{{- $componentName := printf "%s-%s" $appName $component -}}
+{{- $this := . -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- with .Values.cache.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  name: {{ $componentName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+    component: {{ $component }}
+  {{- with .Values.cache.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+   {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $appName }}
+      release: {{ .Release.Name }}
+      {{ $appName }}.service: {{ $component }}
+  {{- with .Values.cache.strategy }}
+  strategy:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      {{- with .Values.cache.podAnnotations }}
+      annotations:
+{{ tpl (toYaml .) $this | indent 8}}
+      {{- end }}
+      labels:
+        app: {{ $appName }}
+        release: {{ .Release.Name }}
+        {{ $appName }}.service: {{ $component }}
+        # openproject.network
+      {{- range $networkName := .Values.cache.networks }}
+        {{ printf "%s.network/%s" $appName $networkName }}: "true"
+      {{- end }}
+      {{- with .Values.cache.podLabels }}
+{{ tpl (toYaml .) $this | indent 8}}
+      {{- end }}
+    spec:
+      containers:
+        - name: {{ $component }}
+          image: {{ .Values.cache.image }}
+          {{- with .Values.cache.env }}
+          env:
+            {{- range $k,$v := .}}
+            - name: {{ $k }}
+              value: {{ tpl $v $this | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: memcache
+              containerPort: 11211
+              protocol: TCP
+          {{- with .Values.cache.livenessProbe }}
+          livenessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.cache.readinessProbe }}
+          readinessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.cache.resources }}
+          resources:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+        {{- if .Values.cache.metrics.enabled }}
+        - name: metrics
+          image: {{ .Values.cache.metrics.image }}
+          {{- with .Values.cache.metrics.env }}
+          env:
+            {{- range $k,$v := .}}
+            - name: {{ $k }}
+              value: {{ tpl $v $this | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: metrics
+              containerPort: 9150
+              protocol: TCP
+          {{- with .Values.cache.metrics.livenessProbe }}
+          livenessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.cache.metrics.readinessProbe }}
+          readinessProbe:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- with .Values.cache.metrics.resources }}
+          resources:
+{{ tpl (toYaml .) $this | indent 12 }}
+          {{- end }}
+          {{- end }}#if metrics enabled
+      restartPolicy: {{ .Values.cache.restartPolicy }}
+
