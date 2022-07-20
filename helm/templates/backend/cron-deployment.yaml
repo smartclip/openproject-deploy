@@ -12,7 +12,7 @@ metadata:
   annotations:
 {{ tpl (toYaml .) $this | indent 4 }}
   {{- end }}
-  name: {{ $componentName }}
+  name: {{ $componentName }}-cron
   labels:
     app: {{ $appName }}
     chart: {{ $appChart }}

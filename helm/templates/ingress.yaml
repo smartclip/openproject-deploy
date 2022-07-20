@@ -1,3 +1,4 @@
+{{- if .Values.ingress.enabled -}}
 {{- $appName := include "app.name" . -}}
 {{- $appChart := include "app.chart" . -}}
 {{- $component := "ingress" -}}
@@ -31,3 +32,4 @@ spec:
   {{- with .Values.ingress.rules }}
 {{ tpl (toYaml .) $this | indent 4 }}
    {{- end }}
+{{- end -}}
