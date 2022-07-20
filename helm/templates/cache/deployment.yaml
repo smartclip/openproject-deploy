@@ -103,6 +103,6 @@ spec:
           resources:
 {{ tpl (toYaml .) $this | indent 12 }}
           {{- end }}
-          {{- end }}#if metrics enabled
+          {{- end }} 
       restartPolicy: {{ .Values.cache.restartPolicy }}
 

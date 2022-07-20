@@ -1,4 +1,3 @@
-# Default .Values
 nameOverride:
 fullNameOverride:
 openproject_image: openproject/community:12
@@ -51,11 +50,16 @@ database:
   resources: {}
   terminationGracePeriodSeconds: 60
   persistentVolumeClaim:
+    # https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
     enabled: true
     annotations: {}
     spec:
-      # storageClassName: ""
-      volumeName: '{{ template "app.name" . }}-database'
+      accessModes:
+        - ReadWriteOnce
+      storageClassName: any
+      resources:
+        requests:
+          storage: 10Gi
   metrics:
     enabled: true
     image: prometheuscommunity/postgres-exporter:latest
@@ -72,7 +76,7 @@ database:
 
 
 frontend:
-  image: #if not set here, taken from global variable openproject_image
+  image: # default is empty. If not set here, taken from global variable openproject_image
   replicas: 1
   restartPolicy: Always
   strategy: {}
@@ -99,11 +103,17 @@ frontend:
   readinessProbe: {}
   resources: {}
   persistentVolumeClaim:
+    # https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
     enabled: true
     annotations: {}
     spec:
       storageClassName: ""
       volumeName: '{{ template "app.name" . }}-opdata'
+      accessModes:
+        - ReadWriteMany
+      resources:
+        requests:
+          storage: 10Mi
   service:
     type: ClusterIP
     annotations: {}
@@ -111,10 +121,11 @@ frontend:
 
 
 backend:
-  image: #if not set here, taken from global variable openproject_image
+  image: # default is empty. If not set here, taken from global variable openproject_image
   networks: 
     - backend
-  strategy: Recreate
+  strategy: 
+    type: Recreate
   env:
     OPENPROJECT_RAILS__RELATIVE__URL__ROOT: ""
     RAILS_CACHE_STORE: memcache
@@ -135,24 +146,21 @@ backend:
     resources: {}
     restartPolicy: Always
   persistentVolumeClaim:
+    # https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
     enabled: true
     annotations: {}
     spec:
       storageClassName: ""
       volumeName: '{{ template "app.name" . }}-opdata'
-
-persistentVolumes:
-  - name: '{{ template "app.name" . }}-database'
-    spec:
-      claimRef:
-        name: '{{ template "app.name" . }}-database'
-        namespace: "{{ .Release.Namespace }}"
-      # storageClassName: ""
       accessModes:
-        - ReadWriteOnce
+        - ReadWriteMany
       resources:
         requests:
-          storage: 10Gi
+          storage: 10Mi
+
+persistentVolumes:
+  # https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes
+  # NFS example: https://github.com/kubernetes/examples/tree/master/staging/volumes/nfs
   - name: '{{ template "app.name" . }}-opdata'
     spec:
       claimRef:
@@ -164,18 +172,30 @@ persistentVolumes:
       accessModes:
         - ReadWriteMany
       nfs:
-        server: nfs-server
+        server: nfs-server # <- put here your NFS server host name or IP
         path: "/{{ template \"app.name\" . }}/{{ .Release.Namespace }}"
       mountOptions:
-        - nfsvers=4.2
+        - nfsvers=4.2 # <- put here your NFS server protocol version
 
 ingress:
-  enabled: false
-  rules: []
-    # - host: example.com
-    #   paths:
-    #     - path: /subpath
-    #     - path: /more
+  enabled: true
+  ingressClassName: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  labels: {}
+  tls: []
+  rules:
+    - host: k8s.openproject-dev.com # <- change to your desired host
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: '{{ template "app.name" . }}-frontend'
+                port:
+                  number: 80
+      
 
 policy:
   networking:

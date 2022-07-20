@@ -1,0 +1,33 @@
+{{- $appName := include "app.name" . -}}
+{{- $appChart := include "app.chart" . -}}
+{{- $component := "ingress" -}}
+{{- $componentName := printf "%s-%s" $appName $component -}}
+{{- $this := . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  {{- with .Values.ingress.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
+  name: {{ $componentName }}
+  labels:
+    app: {{ $appName }}
+    chart: {{ $appChart }}
+    heritage: {{ $this.Release.Service }}
+    release: {{ $this.Release.Name }}
+    {{ $appName }}.service: {{ $component }}
+    component: {{ $component }}
+  {{- with .Values.ingress.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+   {{- end }}
+spec:
+  ingressClassName: {{ $this.Values.ingress.ingressClassName }}
+  {{- with .Values.ingress.tls }}
+  tls:
+{{ tpl (toYaml .) $this | indent 4 }}
+   {{- end }}
+  rules:
+  {{- with .Values.ingress.rules }}
+{{ tpl (toYaml .) $this | indent 4 }}
+   {{- end }}
