@@ -92,6 +92,7 @@ spec:
           {{- if .Values.database.persistentVolumeClaim.enabled }}
           volumeMounts:
             - mountPath: /var/lib/postgresql/data
+              subPath: openproject
               name: pgdata
           {{- end }}
         {{- if .Values.database.metrics.enabled }}
