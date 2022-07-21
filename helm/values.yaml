@@ -104,6 +104,9 @@ frontend:
     RAILS_MAX_THREADS: "16"
     RAILS_MIN_THREADS: "4"
     OPENPROJECT_EDITION: standard
+    IMAP_ENABLED: "false"
+  secret:
+    SMTP_PASSWORD: "password"
   annotations: {}
   labels: {}
   livenessProbe:
@@ -121,7 +124,6 @@ frontend:
     annotations: {}
     labels: {}
 
-
 backend:
   image: *openprojectImage
   networks: 
@@ -134,6 +136,8 @@ backend:
     RAILS_MAX_THREADS: "16"
     RAILS_MIN_THREADS: "4"
     OPENPROJECT_EDITION: standard
+    IMAP_ENABLED: "false"
+  secret: {}
   annotations: {}
   labels: {}
   cron:
