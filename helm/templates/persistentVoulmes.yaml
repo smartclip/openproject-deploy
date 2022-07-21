@@ -7,12 +7,19 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
+{{- with $volume.annotations }}
+  annotations:
+{{ tpl (toYaml .) $this | indent 4 }}
+  {{- end }}
   name: {{ $volumeName }}
   labels:
     app: {{ $appName }}
     chart: {{ $appChart }}
     heritage: {{ $this.Release.Service }}
     release: {{ $this.Release.Name }}
+    {{- with $volume.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+    {{- end }}
 spec:
   {{- with $volume.spec }}
 {{ tpl (toYaml .) $this | indent 2 }}

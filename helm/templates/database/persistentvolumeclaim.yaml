@@ -20,6 +20,9 @@ metadata:
     release: {{ $this.Release.Name }}
     {{ $appName }}.service: {{ $component }}
     component: {{ $component }}
+    {{- with .Values.database.persistentVolumeClaim.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+    {{- end }}
 spec:
   {{- with .Values.database.persistentVolumeClaim.spec }}
 {{ tpl (toYaml .) $this | indent 2 }}

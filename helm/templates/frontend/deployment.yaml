@@ -3,6 +3,7 @@
 {{- $component := "frontend" -}}
 {{- $componentName := printf "%s-%s" $appName $component -}}
 {{- $databaseReferenceName := printf "%s-%s" $appName "database" -}}
+{{- $volumeClaimName :=  tpl .Values.sharedVolumeClaimName . | default false -}}
 {{- $this := . -}}
 ---
 apiVersion: apps/v1
@@ -54,7 +55,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: {{ default .Values.frontend.image .Values.openproject_image }}
+          image: {{ default .Values.frontend.image .Values.openprojectImage }}
           args:
             - ./docker/prod/web
           env:
@@ -81,7 +82,7 @@ spec:
               {{- end }}
             {{- end }}
           ports:
-            - containerPort: 80
+            - containerPort: 8080
               name: http
           {{- with .Values.frontend.livenessProbe }}
           livenessProbe:
@@ -95,16 +96,15 @@ spec:
           resources:
 {{ tpl (toYaml .) $this | indent 12 }}
           {{- end }}
-          {{- if .Values.frontend.persistentVolumeClaim.enabled }}
+          {{- if $volumeClaimName }}
           volumeMounts:
             - mountPath: /var/openproject/assets
               name: opdata
           {{- end }}
       restartPolicy: {{.Values.frontend.restartPolicy }}
-      {{- if .Values.frontend.persistentVolumeClaim.enabled }}
+      {{- if $volumeClaimName }}
       volumes:
         - name: opdata
           persistentVolumeClaim:
-            claimName: {{ $componentName }}
+            claimName: {{ $volumeClaimName }}
       {{- end }}
-

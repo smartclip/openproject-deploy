@@ -1,27 +1,27 @@
 {{- $appName := include "app.name" . -}}
 {{- $appChart := include "app.chart" . -}}
-{{- $component := "frontend" -}}
-{{- $componentName := printf "%s-%s" $appName $component -}}
 {{- $this := . -}}
-{{- if .Values.frontend.persistentVolumeClaim.enabled -}}
+{{- range $volumeClaim := .Values.persistentVolumeClaims }}
+{{- $volumeClaimName := tpl $volumeClaim.name $this }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  {{- with .Values.frontend.persistentVolumeClaim.annotations }}
+  {{- with $volumeClaim.annotations }}
   annotations:
 {{ tpl (toYaml .) $this | indent 4 }}
   {{- end }}
-  name: {{ $componentName }}
+  name: {{ $volumeClaimName }}
   labels:
     app: {{ $appName }}
     chart: {{ $appChart }}
     heritage: {{ $this.Release.Service }}
     release: {{ $this.Release.Name }}
-    {{ $appName }}.service: {{ $component }}
-    component: {{ $component }}
+    {{- with $volumeClaim.labels }}
+{{ tpl (toYaml .) $this | indent 4 }}
+    {{- end }}
 spec:
-  {{- with .Values.frontend.persistentVolumeClaim.spec }}
+  {{- with $volumeClaim.spec }}
 {{ tpl (toYaml .) $this | indent 2 }}
   {{- end }}
 {{- end }}

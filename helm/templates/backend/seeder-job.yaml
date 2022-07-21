@@ -1,19 +1,22 @@
 {{- $appName := include "app.name" . -}}
 {{- $appChart := include "app.chart" . -}}
-{{- $component := "backend-cron" -}}
+{{- $component := "backend-seeder" -}}
 {{- $componentName := printf "%s-%s" $appName $component -}}
 {{- $databaseReferenceName := printf "%s-%s" $appName "database" -}}
 {{- $volumeClaimName :=  tpl .Values.sharedVolumeClaimName . | default false -}}
 {{- $this := . -}}
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  {{- with .Values.backend.annotations }}
+  name: "{{ $componentName }}"
   annotations:
+   {{- with .Values.backend.annotations }}
 {{ tpl (toYaml .) $this | indent 4 }}
   {{- end }}
-  name: {{ $componentName }}
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
   labels:
     app: {{ $appName }}
     chart: {{ $appChart }}
@@ -21,43 +24,38 @@ metadata:
     release: {{ $this.Release.Name }}
     {{ $appName }}.service: {{ $component }}
     component: {{ $component }}
-  {{- with .Values.backend.labels }}
+    {{- with .Values.backend.labels }}
 {{ tpl (toYaml .) $this | indent 4 }}
-   {{- end }}
+    {{- end }}
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: {{ $appName }}
-      release: {{ .Release.Name }}
-      {{ $appName }}.service: {{ $component }}
-  {{- with .Values.backend.strategy }}
-  strategy:
-{{ tpl (toYaml .) $this | indent 4 }}
-  {{- end }}
   template:
     metadata:
-      {{- with .Values.backend.podAnnotations }}
+      name: "{{ $componentName }}"
+      {{- with .Values.backend.annotations }}
       annotations:
-{{ tpl (toYaml .) $this | indent 8}}
+{{ tpl (toYaml .) $this | indent 8 }}
       {{- end }}
       labels:
         app: {{ $appName }}
-        release: {{ .Release.Name }}
+        chart: {{ $appChart }}
+        heritage: {{ $this.Release.Service }}
+        release: {{ $this.Release.Name }}
         {{ $appName }}.service: {{ $component }}
-      {{- with .Values.backend.podLabels }}
-{{ tpl (toYaml .) $this | indent 8}}
-      {{- end }}
-      # openproject.network
-      {{- range $networkName := .Values.backend.networks }}
+        component: {{ $component }}
+        # openproject.network
+        {{- range $networkName := .Values.backend.networks }}
         {{ printf "%s.network/%s" $appName $networkName }}: "true"
-      {{- end }}
+        {{- end }}
+        {{- with .Values.backend.labels }}
+{{ tpl (toYaml .) $this | indent 8 }}
+        {{- end }}
     spec:
+      restartPolicy: OnFailure
       containers:
-        - name: cron
+        - name: seeder
           image: {{ default .Values.backend.image .Values.openprojectImage }}
           args:
-            - ./docker/prod/cron
+            - ./docker/prod/seeder
           env:
             {{- with .Values.database.secret }}
               {{- range $k,$v := . }}
@@ -81,31 +79,18 @@ spec:
               value: {{ tpl $v $this | quote }}
               {{- end }}
             {{- end }}
-          ports:
-            - containerPort: 80
-              name: http
-          {{- with .Values.backend.cron.livenessProbe }}
-          livenessProbe:
-{{ tpl (toYaml .) $this | indent 12 }}
-          {{- end }}
-          {{- with .Values.backend.cron.readinessProbe }}
-          readinessProbe:
-{{ tpl (toYaml .) $this | indent 12 }}
-          {{- end }}
-          {{- with .Values.backend.cron.resources }}
+          {{- with .Values.backend.resources }}
           resources:
-{{ tpl (toYaml .) $this | indent 12 }}
+    {{ tpl (toYaml .) $this | indent 8 }}
           {{- end }}
           {{- if $volumeClaimName }}
           volumeMounts:
             - mountPath: /var/openproject/assets
               name: opdata
           {{- end }}
-      restartPolicy:  {{ .Values.backend.cron.restartPolicy }}
       {{- if $volumeClaimName }}
       volumes:
         - name: opdata
           persistentVolumeClaim:
             claimName: {{ $volumeClaimName }}
       {{- end }}
-

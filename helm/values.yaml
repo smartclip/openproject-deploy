@@ -1,6 +1,7 @@
 nameOverride:
 fullNameOverride:
-openproject_image: openproject/community:12
+openprojectImage: &openprojectImage "openproject/community:12"
+sharedVolumeClaimName: &sharedVolumeClaimName '{{ template "app.name" . }}-opdata'
 
 cache:
   image: memcached
@@ -16,6 +17,20 @@ cache:
   livenessProbe: {}
   readinessProbe: {}
   resources: {}
+  persistentVolumeClaim:
+    # https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
+    enabled: false
+    mountPath: # -> default /var/usr/lib/cache, mount path for the cache container
+    subPath: # -> default /cache, path on disk
+    # annotations: {}
+    # labels: {}
+    # spec:
+    #   accessModes:
+    #     - ReadWriteOnce
+    #   storageClassName: any
+    #   resources:
+    #     requests:
+    #       storage: 10Gi
   metrics:
     enabled: true
     image: quay.io/prometheus/memcached-exporter:latest
@@ -53,6 +68,7 @@ database:
     # https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
     enabled: true
     annotations: {}
+    labels: {}
     spec:
       accessModes:
         - ReadWriteOnce
@@ -76,7 +92,7 @@ database:
 
 
 frontend:
-  image: # default is empty. If not set here, taken from global variable openproject_image
+  image: *openprojectImage
   replicas: 1
   restartPolicy: Always
   strategy: {}
@@ -91,29 +107,15 @@ frontend:
   annotations: {}
   labels: {}
   livenessProbe:
-    exec:
-      command:
-        - curl
-        - -f
-        - http://localhost/health_checks/default
+    httpGet:
+        path: /health_checks/default
+        port: 8080
     failureThreshold: 3
     initialDelaySeconds: 30
     periodSeconds: 10
     timeoutSeconds: 3
   readinessProbe: {}
   resources: {}
-  persistentVolumeClaim:
-    # https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
-    enabled: true
-    annotations: {}
-    spec:
-      storageClassName: ""
-      volumeName: '{{ template "app.name" . }}-opdata'
-      accessModes:
-        - ReadWriteMany
-      resources:
-        requests:
-          storage: 10Mi
   service:
     type: ClusterIP
     annotations: {}
@@ -121,7 +123,7 @@ frontend:
 
 
 backend:
-  image: # default is empty. If not set here, taken from global variable openproject_image
+  image: *openprojectImage
   networks: 
     - backend
   strategy: 
@@ -145,13 +147,15 @@ backend:
     readinessProbe: {}
     resources: {}
     restartPolicy: Always
-  persistentVolumeClaim:
+
+persistentVolumeClaims:
     # https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
-    enabled: true
+  - name: *sharedVolumeClaimName
     annotations: {}
+    labels: {}
     spec:
       storageClassName: ""
-      volumeName: '{{ template "app.name" . }}-opdata'
+      volumeName: *sharedVolumeClaimName
       accessModes:
         - ReadWriteMany
       resources:
@@ -161,10 +165,10 @@ backend:
 persistentVolumes:
   # https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes
   # NFS example: https://github.com/kubernetes/examples/tree/master/staging/volumes/nfs
-  - name: '{{ template "app.name" . }}-opdata'
+  - name: *sharedVolumeClaimName
     spec:
       claimRef:
-        name: '{{ template "app.name" . }}-opdata'
+        name: *sharedVolumeClaimName
         namespace: "{{ .Release.Namespace }}"
       storageClassName: ""
       capacity:
@@ -173,7 +177,7 @@ persistentVolumes:
         - ReadWriteMany
       nfs:
         server: nfs-server # <- put here your NFS server host name or IP
-        path: "/{{ template \"app.name\" . }}/{{ .Release.Namespace }}"
+        path: "/{{ template \"app.name\" . }}/{{ .Release.Namespace }}"  # <- put here your NFS server sub path
       mountOptions:
         - nfsvers=4.2 # <- put here your NFS server protocol version
 
@@ -199,7 +203,7 @@ ingress:
 
 policy:
   networking:
-    enabled: true
+    enabled: false
     networks:
       - frontend
       - backend

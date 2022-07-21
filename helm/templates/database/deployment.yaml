@@ -43,7 +43,6 @@ spec:
         app: {{ $appName }}
         release: {{ .Release.Name }}
         {{ $appName }}.service: {{ $component }}
-        # openproject.network
       {{- range $networkName := .Values.database.networks }}
         {{ printf "%s.network/%s" $appName $networkName }}: "true"
       {{- end }}

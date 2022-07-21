@@ -1,8 +1,9 @@
 {{- $appName := include "app.name" . -}}
 {{- $appChart := include "app.chart" . -}}
-{{- $component := "backend" -}}
+{{- $component := "backend-worker" -}}
 {{- $componentName := printf "%s-%s" $appName $component -}}
 {{- $databaseReferenceName := printf "%s-%s" $appName "database" -}}
+{{- $volumeClaimName :=  tpl .Values.sharedVolumeClaimName . | default false -}}
 {{- $this := . -}}
 ---
 apiVersion: apps/v1
@@ -12,7 +13,7 @@ metadata:
   annotations:
 {{ tpl (toYaml .) $this | indent 4 }}
   {{- end }}
-  name: {{ $componentName }}-worker
+  name: {{ $componentName }}
   labels:
     app: {{ $appName }}
     chart: {{ $appChart }}
@@ -53,8 +54,8 @@ spec:
       {{- end }}
     spec:
       containers:
-        - name: cron
-          image: {{ default .Values.backend.image .Values.openproject_image }}
+        - name: worker
+          image: {{ default .Values.backend.image .Values.openprojectImage }}
           args:
             - ./docker/prod/cron
           env:
@@ -95,15 +96,15 @@ spec:
           resources:
 {{ tpl (toYaml .) $this | indent 12 }}
           {{- end }}
-          {{- if .Values.backend.persistentVolumeClaim.enabled }}
+          {{- if $volumeClaimName }}
           volumeMounts:
             - mountPath: /var/openproject/assets
               name: opdata
           {{- end }}
       restartPolicy:  {{ .Values.backend.cron.restartPolicy }}
-      {{- if .Values.backend.persistentVolumeClaim.enabled }}
+      {{- if $volumeClaimName }}
       volumes:
         - name: opdata
           persistentVolumeClaim:
-            claimName: {{ $componentName }}
+            claimName: {{ $volumeClaimName }}
       {{- end }}

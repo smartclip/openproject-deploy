@@ -104,5 +104,17 @@ spec:
 {{ tpl (toYaml .) $this | indent 12 }}
           {{- end }}
           {{- end }} 
+          {{- if .Values.cache.persistentVolumeClaim.enabled }}
+          volumeMounts:
+            - mountPath: {{ .Values.cache.persistentVolumeClaim.mountPath | default ("/var/usr/lib/cache") }}
+              subPath: {{ .Values.cache.persistentVolumeClaim.mountPath | default ("/var/usr/lib/cache") }}
+              name: cachedata
+          {{- end }}
       restartPolicy: {{ .Values.cache.restartPolicy }}
+      {{- if .Values.cache.persistentVolumeClaim.enabled }}
+      volumes:
+        - name: cachedata
+          persistentVolumeClaim:
+            claimName: {{ $component }}
+      {{- end }}
 
