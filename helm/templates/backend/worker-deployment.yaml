@@ -57,7 +57,7 @@ spec:
         - name: worker
           image: {{ default .Values.backend.image .Values.openprojectImage }}
           args:
-            - ./docker/prod/cron
+            - ./docker/prod/worker
           env:
             {{- with .Values.database.secret }}
               {{- range $k,$v := . }}
